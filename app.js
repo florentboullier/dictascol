@@ -17,15 +17,8 @@ const CONFIG = {
   // Langue de reconnaissance vocale
   SPEECH_LANG: 'fr-FR',
 
-  // Liste des professeurs de l'établissement
-  // Rôle possible : 'writer' (peut corriger/éditer) ou 'commenter' (peut annoter) ou 'reader' (lecture seule)
-  TEACHERS: [
-    { name: 'Mme Martin',   subject: 'Français',         email: 'martin.francais@ecole.fr',    role: 'writer' },
-    { name: 'M. Dupont',    subject: 'Histoire-Géo',     email: 'dupont.histgeo@ecole.fr',     role: 'writer' },
-    { name: 'Mme Bernard',  subject: 'Anglais',          email: 'bernard.anglais@ecole.fr',    role: 'writer' },
-    { name: 'M. Petit',     subject: 'SVT',              email: 'petit.svt@ecole.fr',          role: 'writer' },
-    { name: 'Mme Leroy',    subject: 'Espagnol',         email: 'leroy.espagnol@ecole.fr',     role: 'writer' },
-  ],
+  // Fichier CSV contenant la liste des professeurs (Civilité;Nom;Prénom;Email)
+  TEACHERS_CSV: 'professeurs.csv',
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -42,6 +35,7 @@ const state = {
   startTime: null,
   pendingExport: false, // true if export was triggered before login
   useDyslexicFont: true,
+  teachers: [],
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -92,35 +86,81 @@ function cacheDOMRefs() {
 // ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', init);
 
-function init() {
+async function init() {
   cacheDOMRefs();
-  initTeachersList();
   checkBrowserSupport();
   initSpeechRecognition();
   initGoogleAuth();
   initUIEvents();
   loadPreferences();
+  await initTeachersList();
   restoreDraft();
 }
 
 // ───────────────────────────────────────────────────────────────
-// TEACHERS LIST
+// TEACHERS LIST (depuis professeurs.csv)
 // ───────────────────────────────────────────────────────────────
-function initTeachersList() {
-  if (!DOM.teacherSelect || !Array.isArray(CONFIG.TEACHERS)) return;
+async function initTeachersList() {
+  if (!DOM.teacherSelect) return;
 
-  CONFIG.TEACHERS.forEach((teacher, index) => {
-    const option = document.createElement('option');
-    option.value = String(index);
-    option.textContent = `${teacher.name} (${teacher.subject})`;
-    DOM.teacherSelect.appendChild(option);
-  });
+  try {
+    const response = await fetch(CONFIG.TEACHERS_CSV, { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const csvText = await response.text();
+    state.teachers = parseTeachersCSV(csvText);
+
+    state.teachers.forEach((teacher) => {
+      const option = document.createElement('option');
+      option.value = teacher.email;
+      option.textContent = teacher.displayLabel;
+      DOM.teacherSelect.appendChild(option);
+    });
+  } catch (err) {
+    console.warn('Impossible de charger professeurs.csv :', err);
+  }
+}
+
+function parseTeachersCSV(csvText) {
+  const cleanText = csvText.replace(/^\uFEFF/, ''); // Retire le BOM UTF-8 éventuel
+  const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const teachers = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const parts = lines[i].split(';').map(p => p.trim());
+    if (parts.length < 4) continue;
+
+    const [civilite, nom, prenom, email, subject] = parts;
+
+    // Ignore la ligne d'en-tête
+    if (i === 0 && email.toLowerCase() === 'email') continue;
+    if (!email || !email.includes('@')) continue;
+
+    const shortName = `${civilite} ${nom}`.trim();
+    const fullName  = `${civilite} ${nom} ${prenom}`.trim();
+    const displayLabel = subject ? `${fullName} (${subject})` : fullName;
+
+    teachers.push({
+      civilite,
+      nom,
+      prenom,
+      name: shortName,
+      fullName,
+      displayLabel,
+      subject: subject || '',
+      email,
+      role: 'writer',
+    });
+  }
+
+  return teachers;
 }
 
 function getSelectedTeacher() {
-  if (!DOM.teacherSelect || DOM.teacherSelect.value === '') return null;
-  const idx = parseInt(DOM.teacherSelect.value, 10);
-  return CONFIG.TEACHERS[idx] || null;
+  if (!DOM.teacherSelect || !DOM.teacherSelect.value) return null;
+  return state.teachers.find(t => t.email === DOM.teacherSelect.value) || null;
 }
 
 function updateExportButtonLabel() {
@@ -524,7 +564,7 @@ async function exportToGoogleDocs() {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     })}`;
   const studentPrefix = state.userName ? `[${state.userName}] ` : '';
-  const subjectPrefix = teacher ? `[${teacher.subject}] ` : '';
+  const subjectPrefix = (teacher && teacher.subject) ? `[${teacher.subject}] ` : '';
   const title = `${studentPrefix}${subjectPrefix}${baseTitle}`;
 
   showToast('Création du document…', 'info');
@@ -601,12 +641,13 @@ function showSentConfirmation(teacher, docTitle, docUrl, shared) {
   if (!DOM.sentModal) return;
 
   if (teacher) {
+    const teacherDisplay = teacher.fullName || teacher.name;
     if (shared) {
       DOM.sentModalTitle.textContent = '✅ Copie bien envoyée !';
-      DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a bien été envoyée à ${teacher.name} (${teacher.subject}).`;
+      DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a bien été envoyée à ${teacherDisplay}.`;
     } else {
       DOM.sentModalTitle.textContent = '⚠️ Copie créée dans ton Drive';
-      DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a été créée dans ton Google Drive, mais le partage automatique avec ${teacher.name} n'a pas pu aboutir.`;
+      DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a été créée dans ton Google Drive, mais le partage automatique avec ${teacherDisplay} n'a pas pu aboutir.`;
     }
   } else {
     DOM.sentModalTitle.textContent = '✅ Copie enregistrée !';

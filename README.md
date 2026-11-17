@@ -89,24 +89,23 @@ Dans le menu ☰ → **API et services** → **Écran de consentement OAuth** (o
 
 ### Étape 5 — Configurer l'application et la liste des professeurs
 
-Ouvre le fichier `app.js` et configure ton `GOOGLE_CLIENT_ID` ainsi que la liste des professeurs (`TEACHERS`) :
+1. Ouvre le fichier `app.js` et vérifie ton `GOOGLE_CLIENT_ID` :
+   ```javascript
+   const CONFIG = {
+     GOOGLE_CLIENT_ID: '123456789-xxxxx.apps.googleusercontent.com',
+     SCOPES: 'https://www.googleapis.com/auth/drive.file',
+     SPEECH_LANG: 'fr-FR',
+     TEACHERS_CSV: 'professeurs.csv',
+   };
+   ```
+2. Pour modifier la liste des professeurs, édite simplement le fichier **`professeurs.csv`** (avec Excel, LibreOffice ou un éditeur de texte) au format `Civilité;Nom;Prénom;Email` :
+   ```csv
+   Civilité;Nom;Prénom;Email
+   Mme;Amand;Isabelle;isabelle.amand@lyceedupaysdebray.fr
+   M.;Boullier;Florent;florent.boullier@lyceedupaysdebray.fr
+   ```
 
-```javascript
-const CONFIG = {
-  GOOGLE_CLIENT_ID: '123456789-xxxxx.apps.googleusercontent.com',  // ← ICI
-  SCOPES: 'https://www.googleapis.com/auth/drive.file',
-  SPEECH_LANG: 'fr-FR',
-
-  // Liste des professeurs de l'établissement
-  TEACHERS: [
-    { name: 'Mme Martin',  subject: 'Français',     email: 'martin.francais@ecole.fr', role: 'writer' },
-    { name: 'M. Dupont',   subject: 'Histoire-Géo', email: 'dupont.histgeo@ecole.fr',  role: 'writer' },
-    // Ajoute d'autres professeurs ici...
-  ],
-};
-```
-
-> 💡 Quand l'élève choisit un professeur et clique sur **Envoyer à [Nom du prof]**, le Google Doc est créé dans le Drive de l'élève (avec le nom de l'élève et la matière dans le titre) et **automatiquement partagé en édition** avec le professeur, qui reçoit une notification par e-mail avec le lien direct vers la copie.
+> 💡 Quand l'élève choisit un professeur et clique sur **Envoyer à [Nom du prof]**, le Google Doc est créé dans le Drive de l'élève et **automatiquement partagé en édition** avec le professeur, qui reçoit une notification par e-mail avec le lien direct vers la copie.
 
 ### Étape 6 — Tester
 
@@ -156,10 +155,11 @@ Place les fichiers sur un serveur web interne (Apache, Nginx, IIS...) accessible
 
 ```
 dictaphone/
-├── index.html      ← Page principale
-├── style.css       ← Styles (dyslexie-friendly)
-├── app.js          ← Logique de l'application
-└── README.md       ← Ce fichier
+├── index.html        ← Page principale
+├── style.css         ← Styles (dyslexie-friendly)
+├── app.js            ← Logique de l'application
+├── professeurs.csv   ← Liste des professeurs (modifiable directement)
+└── README.md         ← Ce fichier
 ```
 
 ---
