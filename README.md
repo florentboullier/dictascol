@@ -1,4 +1,8 @@
-# 🎙️ DictaScol — Dictée vocale pour élèves dyslexiques
+# 🎙️ DictaScol — Dictée & Dys (Lycée du Pays de Bray)
+
+<p align="center">
+  <img src="logo.jpg" alt="Logo DictaScol" width="220">
+</p>
 
 Application web de dictée vocale qui transforme la parole en texte, exportable vers Google Docs.  
 Conçue pour les élèves dyslexiques utilisant Google Workspace for Education.
