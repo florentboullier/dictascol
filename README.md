@@ -58,30 +58,34 @@ Pour permettre aux élèves d'exporter directement vers Google Docs, il faut con
 2. Cherche **Google Drive API**
 3. Clique dessus → **Activer**
 
-### Étape 3 — Configurer l'écran de consentement OAuth
+### Étape 3 — Configurer Google Auth Platform (Écran de consentement OAuth)
 
-1. Menu ☰ → **API et services** → **Écran de consentement OAuth**
-2. Choisis **Interne** (limité aux utilisateurs de ton domaine Google Workspace)
-3. Remplis :
+Dans le menu ☰ → **API et services** → **Écran de consentement OAuth** (ou **Google Auth Platform**), utilise le menu de gauche :
+
+1. **Branding** :
    - Nom de l'application : `DictaScol`
    - Adresse e-mail d'assistance : ton email admin
-   - Logo (optionnel)
-   - Domaine autorisé : ton domaine scolaire
-4. **Enregistrer et continuer**
-5. Ajoute le scope : `https://www.googleapis.com/auth/drive.file`
-6. **Enregistrer et continuer** → **Retour au tableau de bord**
+   - Coordonnées du développeur (en bas) : ton email admin → **Enregistrer**
+2. **Audience** :
+   - Choisis **Interne** (limité aux utilisateurs de ton domaine Google Workspace)
+   - *(Ou **Externe** si tu testes avec un compte Gmail personnel : ajoute alors ton adresse dans "Utilisateurs de test")*
+3. **Accès aux données** :
+   - Clique sur **Ajouter ou supprimer des niveaux d'accès**
+   - Tout en bas du panneau de droite ("Ajouter manuellement des niveaux d'accès"), colle :
+     `https://www.googleapis.com/auth/drive.file`
+   - Clique sur **Ajouter au tableau** → **Mettre à jour** → puis **Save** (Enregistrer) en bas de la page.
 
-### Étape 4 — Créer les identifiants OAuth
+### Étape 4 — Créer l'identifiant client OAuth
 
-1. Menu ☰ → **API et services** → **Identifiants**
-2. **+ Créer des identifiants** → **ID client OAuth**
-3. Type d'application : **Application Web**
-4. Nom : `DictaScol Web`
-5. **Origines JavaScript autorisées** — ajoute :
-   - `http://localhost:8080` (pour le développement)
-   - `https://ton-domaine.fr` (pour la production)
-6. **Créer**
-7. **Copie le "ID client"** (ressemble à `123456789-xxxxx.apps.googleusercontent.com`)
+1. Dans le menu de gauche de Google Auth Platform, clique sur **Clients** (ou **API et services** → **Identifiants**)
+2. Clique sur **+ Créer un client** (ou **+ Créer des identifiants** → **ID client OAuth**)
+3. **Type d'application** : **Application Web**
+4. **Nom** : `DictaScol Web`
+5. **Origines JavaScript autorisées** — clique sur **+ Ajouter un URI** et ajoute :
+   - `http://localhost:8888` (pour tester en local)
+   - `https://florentboullier.github.io` (pour GitHub Pages en production)
+6. Clique sur **Créer**
+7. **Copie l'ID client** (qui ressemble à `123456789-xxxxx.apps.googleusercontent.com`)
 
 ### Étape 5 — Configurer l'application et la liste des professeurs
 

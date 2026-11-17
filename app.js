@@ -9,7 +9,7 @@
 const CONFIG = {
   // Remplace par ton Client ID Google Cloud (voir README.md)
   // Ex : '123456789-xxxxxxxxx.apps.googleusercontent.com'
-  GOOGLE_CLIENT_ID: '',
+  GOOGLE_CLIENT_ID: '136709625042-1tgks7qtgp531sbtqb9jrol5a415qo2g.apps.googleusercontent.com',
 
   // Scopes Google API
   SCOPES: 'https://www.googleapis.com/auth/drive.file',
