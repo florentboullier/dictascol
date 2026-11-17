@@ -83,16 +83,26 @@ Pour permettre aux élèves d'exporter directement vers Google Docs, il faut con
 6. **Créer**
 7. **Copie le "ID client"** (ressemble à `123456789-xxxxx.apps.googleusercontent.com`)
 
-### Étape 5 — Configurer l'application
+### Étape 5 — Configurer l'application et la liste des professeurs
 
-Ouvre le fichier `app.js` et colle ton Client ID :
+Ouvre le fichier `app.js` et configure ton `GOOGLE_CLIENT_ID` ainsi que la liste des professeurs (`TEACHERS`) :
 
 ```javascript
 const CONFIG = {
   GOOGLE_CLIENT_ID: '123456789-xxxxx.apps.googleusercontent.com',  // ← ICI
-  // ...
+  SCOPES: 'https://www.googleapis.com/auth/drive.file',
+  SPEECH_LANG: 'fr-FR',
+
+  // Liste des professeurs de l'établissement
+  TEACHERS: [
+    { name: 'Mme Martin',  subject: 'Français',     email: 'martin.francais@ecole.fr', role: 'writer' },
+    { name: 'M. Dupont',   subject: 'Histoire-Géo', email: 'dupont.histgeo@ecole.fr',  role: 'writer' },
+    // Ajoute d'autres professeurs ici...
+  ],
 };
 ```
+
+> 💡 Quand l'élève choisit un professeur et clique sur **Envoyer à [Nom du prof]**, le Google Doc est créé dans le Drive de l'élève (avec le nom de l'élève et la matière dans le titre) et **automatiquement partagé en édition** avec le professeur, qui reçoit une notification par e-mail avec le lien direct vers la copie.
 
 ### Étape 6 — Tester
 

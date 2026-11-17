@@ -16,6 +16,16 @@ const CONFIG = {
 
   // Langue de reconnaissance vocale
   SPEECH_LANG: 'fr-FR',
+
+  // Liste des professeurs de l'établissement
+  // Rôle possible : 'writer' (peut corriger/éditer) ou 'commenter' (peut annoter) ou 'reader' (lecture seule)
+  TEACHERS: [
+    { name: 'Mme Martin',   subject: 'Français',         email: 'martin.francais@ecole.fr',    role: 'writer' },
+    { name: 'M. Dupont',    subject: 'Histoire-Géo',     email: 'dupont.histgeo@ecole.fr',     role: 'writer' },
+    { name: 'Mme Bernard',  subject: 'Anglais',          email: 'bernard.anglais@ecole.fr',    role: 'writer' },
+    { name: 'M. Petit',     subject: 'SVT',              email: 'petit.svt@ecole.fr',          role: 'writer' },
+    { name: 'Mme Leroy',    subject: 'Espagnol',         email: 'leroy.espagnol@ecole.fr',     role: 'writer' },
+  ],
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -48,6 +58,7 @@ function cacheDOMRefs() {
   DOM.transcript   = document.getElementById('transcript');
   DOM.interimContainer = document.getElementById('interim-container');
   DOM.interimText  = document.getElementById('interim-text');
+  DOM.teacherSelect = document.getElementById('teacher-select');
   DOM.docTitle     = document.getElementById('doc-title');
   DOM.wordCount    = document.getElementById('word-count');
   DOM.loginBtn     = document.getElementById('login-btn');
@@ -78,12 +89,45 @@ document.addEventListener('DOMContentLoaded', init);
 
 function init() {
   cacheDOMRefs();
+  initTeachersList();
   checkBrowserSupport();
   initSpeechRecognition();
   initGoogleAuth();
   initUIEvents();
   loadPreferences();
   restoreDraft();
+}
+
+// ───────────────────────────────────────────────────────────────
+// TEACHERS LIST
+// ───────────────────────────────────────────────────────────────
+function initTeachersList() {
+  if (!DOM.teacherSelect || !Array.isArray(CONFIG.TEACHERS)) return;
+
+  CONFIG.TEACHERS.forEach((teacher, index) => {
+    const option = document.createElement('option');
+    option.value = String(index);
+    option.textContent = `${teacher.name} (${teacher.subject})`;
+    DOM.teacherSelect.appendChild(option);
+  });
+}
+
+function getSelectedTeacher() {
+  if (!DOM.teacherSelect || DOM.teacherSelect.value === '') return null;
+  const idx = parseInt(DOM.teacherSelect.value, 10);
+  return CONFIG.TEACHERS[idx] || null;
+}
+
+function updateExportButtonLabel() {
+  const teacher = getSelectedTeacher();
+  const labelEl = DOM.exportBtn.querySelector('.btn-label');
+  if (!labelEl) return;
+
+  if (teacher) {
+    labelEl.textContent = `Envoyer à ${teacher.name}`;
+  } else {
+    labelEl.textContent = 'Google Docs';
+  }
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -469,10 +513,14 @@ async function exportToGoogleDocs() {
     return;
   }
 
-  const title = DOM.docTitle.value.trim() ||
+  const teacher = getSelectedTeacher();
+  const baseTitle = DOM.docTitle.value.trim() ||
     `Dictée du ${new Date().toLocaleDateString('fr-FR', {
       weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     })}`;
+  const studentPrefix = state.userName ? `[${state.userName}] ` : '';
+  const subjectPrefix = teacher ? `[${teacher.subject}] ` : '';
+  const title = `${studentPrefix}${subjectPrefix}${baseTitle}`;
 
   showToast('Création du document…', 'info');
   DOM.exportBtn.disabled = true;
@@ -523,7 +571,18 @@ async function exportToGoogleDocs() {
     const file = await response.json();
     const docUrl = `https://docs.google.com/document/d/${file.id}/edit`;
 
-    showToast('✅ Document créé !', 'success');
+    // Share with selected teacher if any
+    if (teacher && teacher.email) {
+      showToast(`Partage avec ${teacher.name}…`, 'info');
+      const shared = await shareFileWithTeacher(file.id, teacher, title);
+      if (shared) {
+        showToast(`✅ Copie envoyée à ${teacher.name} !`, 'success', 4000);
+      } else {
+        showToast(`⚠️ Document créé, mais le partage avec ${teacher.name} a échoué`, 'warning', 4500);
+      }
+    } else {
+      showToast('✅ Document créé dans ton Drive !', 'success');
+    }
 
     // Open the doc
     window.open(docUrl, '_blank');
@@ -533,6 +592,46 @@ async function exportToGoogleDocs() {
     showToast('Erreur lors de la création du document', 'error');
   } finally {
     DOM.exportBtn.disabled = false;
+  }
+}
+
+async function shareFileWithTeacher(fileId, teacher, docTitle) {
+  try {
+    const emailMessage = state.userName
+      ? `Bonjour ${teacher.name}, voici la copie dictée par ${state.userName} sur DictaScol : "${docTitle}".`
+      : `Bonjour ${teacher.name}, voici une copie dictée sur DictaScol : "${docTitle}".`;
+
+    const params = new URLSearchParams({
+      sendNotificationEmail: 'true',
+      emailMessage: emailMessage,
+    });
+
+    const response = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/permissions?${params.toString()}`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'user',
+          role: teacher.role || 'writer',
+          emailAddress: teacher.email,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      console.warn('Share permission error:', errData);
+      return false;
+    }
+
+    return true;
+  } catch (e) {
+    console.warn('Failed to share with teacher:', e);
+    return false;
   }
 }
 
@@ -640,6 +739,7 @@ function saveDraft() {
   try {
     localStorage.setItem('dictascol-draft', JSON.stringify({
       title: DOM.docTitle.value,
+      teacher: DOM.teacherSelect ? DOM.teacherSelect.value : '',
       text: DOM.transcript.value,
       timestamp: Date.now(),
     }));
@@ -668,6 +768,10 @@ function restoreDraft() {
     }
     if (draft.title) {
       DOM.docTitle.value = draft.title;
+    }
+    if (draft.teacher !== undefined && DOM.teacherSelect) {
+      DOM.teacherSelect.value = draft.teacher;
+      updateExportButtonLabel();
     }
   } catch (e) {
     // Corrupt data, ignore
@@ -773,8 +877,14 @@ function initUIEvents() {
     saveDraft();
   });
 
-  // Save title on change
+  // Save title & teacher on change
   DOM.docTitle.addEventListener('input', saveDraft);
+  if (DOM.teacherSelect) {
+    DOM.teacherSelect.addEventListener('change', () => {
+      updateExportButtonLabel();
+      saveDraft();
+    });
+  }
 
   // Keyboard shortcut: Ctrl+Enter to toggle recording
   document.addEventListener('keydown', (e) => {

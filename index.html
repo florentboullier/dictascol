@@ -49,16 +49,25 @@
     <!-- ============ MAIN ============ -->
     <main class="main">
 
-      <!-- Titre du document -->
-      <div class="section">
-        <label for="doc-title" class="label">📝 Titre de ta copie</label>
-        <input 
-          type="text" 
-          id="doc-title" 
-          class="input-title" 
-          placeholder="Ex : Rédaction — Le voyage d'Ulysse"
-          autocomplete="off"
-        >
+      <!-- Choix du professeur & Titre du document -->
+      <div class="form-row">
+        <div class="section">
+          <label for="teacher-select" class="label">👩‍🏫 À quel professeur envoyer ?</label>
+          <select id="teacher-select" class="select-input">
+            <option value="">— Choisir un professeur (ou garder pour moi) —</option>
+          </select>
+        </div>
+
+        <div class="section">
+          <label for="doc-title" class="label">📝 Titre de ta copie</label>
+          <input 
+            type="text" 
+            id="doc-title" 
+            class="input-title" 
+            placeholder="Ex : Rédaction — Le voyage d'Ulysse"
+            autocomplete="off"
+          >
+        </div>
       </div>
 
       <!-- Zone d'enregistrement -->
