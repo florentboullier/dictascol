@@ -399,6 +399,13 @@ body {
   color: var(--text-muted);
 }
 
+.field-hint {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
 /* ---------- RECORDING AREA ---------- */
 .recording-area {
   display: flex;
