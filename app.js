@@ -77,6 +77,11 @@ function cacheDOMRefs() {
   DOM.clearModal   = document.getElementById('clear-modal');
   DOM.clearCancel  = document.getElementById('clear-cancel');
   DOM.clearConfirm = document.getElementById('clear-confirm');
+  DOM.sentModal    = document.getElementById('sent-modal');
+  DOM.sentModalTitle = document.getElementById('sent-modal-title');
+  DOM.sentModalMessage = document.getElementById('sent-modal-message');
+  DOM.sentDocLink  = document.getElementById('sent-doc-link');
+  DOM.sentOk       = document.getElementById('sent-ok');
   DOM.browserWarning = document.getElementById('browser-warning');
   DOM.configNotice = document.getElementById('config-notice');
   DOM.toastContainer = document.getElementById('toast-container');
@@ -572,20 +577,17 @@ async function exportToGoogleDocs() {
     const docUrl = `https://docs.google.com/document/d/${file.id}/edit`;
 
     // Share with selected teacher if any
+    let shared = false;
     if (teacher && teacher.email) {
       showToast(`Partage avec ${teacher.name}…`, 'info');
-      const shared = await shareFileWithTeacher(file.id, teacher, title);
-      if (shared) {
-        showToast(`✅ Copie envoyée à ${teacher.name} !`, 'success', 4000);
-      } else {
-        showToast(`⚠️ Document créé, mais le partage avec ${teacher.name} a échoué`, 'warning', 4500);
-      }
-    } else {
-      showToast('✅ Document créé dans ton Drive !', 'success');
+      shared = await shareFileWithTeacher(file.id, teacher, title);
     }
 
-    // Open the doc
-    window.open(docUrl, '_blank');
+    // Reset interface to initial state
+    resetInterface();
+
+    // Show confirmation modal
+    showSentConfirmation(teacher, title, docUrl, shared);
 
   } catch (error) {
     console.error('Export error:', error);
@@ -593,6 +595,29 @@ async function exportToGoogleDocs() {
   } finally {
     DOM.exportBtn.disabled = false;
   }
+}
+
+function showSentConfirmation(teacher, docTitle, docUrl, shared) {
+  if (!DOM.sentModal) return;
+
+  if (teacher) {
+    if (shared) {
+      DOM.sentModalTitle.textContent = '✅ Copie bien envoyée !';
+      DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a bien été envoyée à ${teacher.name} (${teacher.subject}).`;
+    } else {
+      DOM.sentModalTitle.textContent = '⚠️ Copie créée dans ton Drive';
+      DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a été créée dans ton Google Drive, mais le partage automatique avec ${teacher.name} n'a pas pu aboutir.`;
+    }
+  } else {
+    DOM.sentModalTitle.textContent = '✅ Copie enregistrée !';
+    DOM.sentModalMessage.textContent = `Ta copie « ${docTitle} » a bien été créée dans ton Google Drive.`;
+  }
+
+  if (DOM.sentDocLink) {
+    DOM.sentDocLink.href = docUrl;
+  }
+
+  openModal(DOM.sentModal);
 }
 
 async function shareFileWithTeacher(fileId, teacher, docTitle) {
@@ -708,13 +733,34 @@ function showClearConfirmation() {
   DOM.clearModal.style.display = 'flex';
 }
 
-function clearText() {
+function resetInterface() {
+  if (state.isRecording) {
+    stopRecording();
+  }
+  if (window.speechSynthesis && speechSynthesis.speaking) {
+    speechSynthesis.cancel();
+    DOM.listenBtn.textContent = '🔈';
+  }
+
   DOM.transcript.value = '';
   DOM.docTitle.value = '';
-  DOM.clearModal.style.display = 'none';
+  if (DOM.teacherSelect) {
+    DOM.teacherSelect.value = '';
+  }
+  updateExportButtonLabel();
   updateWordCount();
   clearDraft();
+
   DOM.listenBtn.style.display = 'none';
+  DOM.timer.style.display = 'none';
+  DOM.timer.textContent = '00:00';
+  DOM.statusText.textContent = 'Appuie sur le micro pour commencer';
+  DOM.statusText.classList.remove('recording');
+}
+
+function clearText() {
+  resetInterface();
+  DOM.clearModal.style.display = 'none';
   showToast('Texte effacé', 'info');
 }
 
@@ -850,6 +896,13 @@ function initUIEvents() {
     DOM.clearModal.style.display = 'none';
   });
   DOM.clearConfirm.addEventListener('click', clearText);
+
+  // Sent confirmation modal
+  if (DOM.sentOk) {
+    DOM.sentOk.addEventListener('click', () => {
+      DOM.sentModal.style.display = 'none';
+    });
+  }
 
   // Listen (text-to-speech)
   DOM.listenBtn.addEventListener('click', readAloud);
