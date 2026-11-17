@@ -19,6 +19,9 @@ const CONFIG = {
 
   // Fichier CSV contenant la liste des professeurs (Civilité;Nom;Prénom;Email)
   TEACHERS_CSV: 'professeurs.csv',
+
+  // Fichier CSV contenant la liste des matières
+  SUBJECTS_CSV: 'matieres.csv',
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -36,6 +39,7 @@ const state = {
   pendingExport: false, // true if export was triggered before login
   useDyslexicFont: true,
   teachers: [],
+  subjects: [],
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -53,6 +57,7 @@ function cacheDOMRefs() {
   DOM.interimContainer = document.getElementById('interim-container');
   DOM.interimText  = document.getElementById('interim-text');
   DOM.teacherSelect = document.getElementById('teacher-select');
+  DOM.subjectSelect = document.getElementById('subject-select');
   DOM.docTitle     = document.getElementById('doc-title');
   DOM.wordCount    = document.getElementById('word-count');
   DOM.loginBtn     = document.getElementById('login-btn');
@@ -93,8 +98,55 @@ async function init() {
   initGoogleAuth();
   initUIEvents();
   loadPreferences();
-  await initTeachersList();
+  await Promise.all([initTeachersList(), initSubjectsList()]);
   restoreDraft();
+}
+
+// ───────────────────────────────────────────────────────────────
+// SUBJECTS LIST (depuis matieres.csv)
+// ───────────────────────────────────────────────────────────────
+async function initSubjectsList() {
+  if (!DOM.subjectSelect) return;
+
+  try {
+    const response = await fetch(CONFIG.SUBJECTS_CSV, { cache: 'no-cache' });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const csvText = await response.text();
+    state.subjects = parseSubjectsCSV(csvText);
+
+    state.subjects.forEach((subject) => {
+      const option = document.createElement('option');
+      option.value = subject;
+      option.textContent = subject;
+      DOM.subjectSelect.appendChild(option);
+    });
+  } catch (err) {
+    console.warn('Impossible de charger matieres.csv :', err);
+  }
+}
+
+function parseSubjectsCSV(csvText) {
+  const cleanText = csvText.replace(/^\uFEFF/, '');
+  const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const subjects = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const val = lines[i].split(';')[0].trim();
+    if (!val) continue;
+    // Ignore l'en-tête éventuel "Matière" ou "Matières"
+    if (i === 0 && /^mati[eè]res?$/i.test(val)) continue;
+    subjects.push(val);
+  }
+
+  return subjects;
+}
+
+function getSelectedSubject() {
+  if (!DOM.subjectSelect || !DOM.subjectSelect.value) return '';
+  return DOM.subjectSelect.value;
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -559,13 +611,11 @@ async function exportToGoogleDocs() {
   }
 
   const teacher = getSelectedTeacher();
-  const baseTitle = DOM.docTitle.value.trim() ||
-    `Dictée du ${new Date().toLocaleDateString('fr-FR', {
-      weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-    })}`;
-  const studentPrefix = state.userName ? `[${state.userName}] ` : '';
-  const subjectPrefix = (teacher && teacher.subject) ? `[${teacher.subject}] ` : '';
-  const title = `${studentPrefix}${subjectPrefix}${baseTitle}`;
+  const selectedSubject = getSelectedSubject();
+  const baseTitle = DOM.docTitle.value.trim() || 'Copie';
+  const dateStr = new Date().toLocaleDateString('fr-FR');
+  const subjectPrefix = selectedSubject ? `[${selectedSubject}] ` : '';
+  const title = `${subjectPrefix}${baseTitle} - ${dateStr}`;
 
   showToast('Création du document…', 'info');
   DOM.exportBtn.disabled = true;
@@ -788,6 +838,9 @@ function resetInterface() {
   if (DOM.teacherSelect) {
     DOM.teacherSelect.value = '';
   }
+  if (DOM.subjectSelect) {
+    DOM.subjectSelect.value = '';
+  }
   updateExportButtonLabel();
   updateWordCount();
   clearDraft();
@@ -827,6 +880,7 @@ function saveDraft() {
     localStorage.setItem('dictascol-draft', JSON.stringify({
       title: DOM.docTitle.value,
       teacher: DOM.teacherSelect ? DOM.teacherSelect.value : '',
+      subject: DOM.subjectSelect ? DOM.subjectSelect.value : '',
       text: DOM.transcript.value,
       timestamp: Date.now(),
     }));
@@ -859,6 +913,9 @@ function restoreDraft() {
     if (draft.teacher !== undefined && DOM.teacherSelect) {
       DOM.teacherSelect.value = draft.teacher;
       updateExportButtonLabel();
+    }
+    if (draft.subject !== undefined && DOM.subjectSelect) {
+      DOM.subjectSelect.value = draft.subject;
     }
   } catch (e) {
     // Corrupt data, ignore
@@ -971,13 +1028,16 @@ function initUIEvents() {
     saveDraft();
   });
 
-  // Save title & teacher on change
+  // Save title, teacher & subject on change
   DOM.docTitle.addEventListener('input', saveDraft);
   if (DOM.teacherSelect) {
     DOM.teacherSelect.addEventListener('change', () => {
       updateExportButtonLabel();
       saveDraft();
     });
+  }
+  if (DOM.subjectSelect) {
+    DOM.subjectSelect.addEventListener('change', saveDraft);
   }
 
   // Keyboard shortcut: Ctrl+Enter to toggle recording

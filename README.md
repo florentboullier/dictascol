@@ -98,14 +98,22 @@ Dans le menu ☰ → **API et services** → **Écran de consentement OAuth** (o
      TEACHERS_CSV: 'professeurs.csv',
    };
    ```
-2. Pour modifier la liste des professeurs, édite simplement le fichier **`professeurs.csv`** (avec Excel, LibreOffice ou un éditeur de texte) au format `Civilité;Nom;Prénom;Email` :
-   ```csv
-   Civilité;Nom;Prénom;Email
-   Mme;Amand;Isabelle;isabelle.amand@lyceedupaysdebray.fr
-   M.;Boullier;Florent;florent.boullier@lyceedupaysdebray.fr
-   ```
+2. Pour modifier la liste des professeurs ou des matières, édite simplement les fichiers **`professeurs.csv`** et **`matieres.csv`** :
+   - **`professeurs.csv`** (format `Civilité;Nom;Prénom;Email`) :
+     ```csv
+     Civilité;Nom;Prénom;Email
+     Mme;Amand;Isabelle;isabelle.amand@lyceedupaysdebray.fr
+     M.;Boullier;Florent;florent.boullier@lyceedupaysdebray.fr
+     ```
+   - **`matieres.csv`** (une matière par ligne) :
+     ```csv
+     Matière
+     ALLEMAND
+     ANGLAIS
+     FRANÇAIS
+     ```
 
-> 💡 Quand l'élève choisit un professeur et clique sur **Envoyer à [Nom du prof]**, le Google Doc est créé dans le Drive de l'élève et **automatiquement partagé en édition** avec le professeur, qui reçoit une notification par e-mail avec le lien direct vers la copie.
+> 💡 Quand l'élève choisit un professeur et une matière puis clique sur **Envoyer à [Nom du prof]**, le Google Doc est nommé **`[MATIÈRE] Titre de la copie - JJ/MM/AAAA`** et **automatiquement partagé en édition** avec le professeur.
 
 ### Étape 6 — Tester
 
@@ -159,6 +167,7 @@ dictaphone/
 ├── style.css         ← Styles (dyslexie-friendly)
 ├── app.js            ← Logique de l'application
 ├── professeurs.csv   ← Liste des professeurs (modifiable directement)
+├── matieres.csv      ← Liste des matières (modifiable directement)
 └── README.md         ← Ce fichier
 ```
 
