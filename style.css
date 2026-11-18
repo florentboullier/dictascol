@@ -549,6 +549,9 @@ body {
   word-spacing: var(--word-spacing);
   color: var(--text-primary);
   resize: vertical;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
   transition: border-color 0.15s;
   flex: 1;
 }
@@ -559,15 +562,61 @@ body {
   box-shadow: 0 0 0 3px var(--primary-light);
 }
 
-.textarea::placeholder {
+.textarea:empty::before {
+  content: attr(data-placeholder);
   color: var(--text-muted);
   line-height: var(--line-height);
+  pointer-events: none;
+  white-space: pre-wrap;
 }
 
 .editor-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.format-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.btn-format {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-format:hover {
+  background: var(--bg-hover);
+  border-color: var(--primary);
+}
+
+.btn-format.active {
+  background: var(--primary);
+  color: var(--text-on-primary);
+  border-color: var(--primary);
+}
+
+.editor-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-left: auto;
 }
 
 .word-count {

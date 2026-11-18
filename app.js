@@ -40,6 +40,11 @@ const state = {
   useDyslexicFont: true,
   teachers: [],
   subjects: [],
+  activeFormats: {
+    bold: false,
+    italic: false,
+    underline: false,
+  },
 };
 
 // ───────────────────────────────────────────────────────────────
@@ -54,6 +59,9 @@ function cacheDOMRefs() {
   DOM.statusText   = document.getElementById('status-text');
   DOM.timer        = document.getElementById('timer');
   DOM.transcript   = document.getElementById('transcript');
+  DOM.boldBtn      = document.getElementById('bold-btn');
+  DOM.italicBtn    = document.getElementById('italic-btn');
+  DOM.underlineBtn = document.getElementById('underline-btn');
   DOM.interimContainer = document.getElementById('interim-container');
   DOM.interimText  = document.getElementById('interim-text');
   DOM.teacherSelect = document.getElementById('teacher-select');
@@ -280,7 +288,7 @@ function initSpeechRecognition() {
       processed = capitalizeAfterPunctuation(processed);
 
       // Smart spacing: add space before new text if needed
-      const current = DOM.transcript.value;
+      const current = getPlainText();
       if (current.length > 0 && !current.endsWith('\n') && !current.endsWith(' ')) {
         processed = ' ' + processed;
       }
@@ -290,7 +298,7 @@ function initSpeechRecognition() {
         processed = processed.charAt(0).toUpperCase() + processed.slice(1);
       }
 
-      DOM.transcript.value += processed;
+      appendDictatedText(processed);
       DOM.transcript.scrollTop = DOM.transcript.scrollHeight;
       updateWordCount();
       saveDraft();
@@ -397,9 +405,96 @@ function stopRecording() {
   stopTimer();
 
   // Show listen button if there's text
-  if (DOM.transcript.value.trim()) {
+  if (getPlainText().trim()) {
     DOM.listenBtn.style.display = 'inline-flex';
   }
+}
+
+// ───────────────────────────────────────────────────────────────
+// RICH TEXT EDITOR & FORMATTING (Gras, Italique, Souligné)
+// ───────────────────────────────────────────────────────────────
+function getPlainText() {
+  if (!DOM.transcript) return '';
+  return DOM.transcript.innerText || DOM.transcript.textContent || '';
+}
+
+function escapeHTML(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function appendDictatedText(text) {
+  let html = escapeHTML(text).replace(/\n/g, '<br>');
+
+  if (state.activeFormats.bold) {
+    html = `<strong>${html}</strong>`;
+  }
+  if (state.activeFormats.italic) {
+    html = `<em>${html}</em>`;
+  }
+  if (state.activeFormats.underline) {
+    html = `<u>${html}</u>`;
+  }
+
+  DOM.transcript.insertAdjacentHTML('beforeend', html);
+}
+
+function toggleFormatCommand(command) {
+  if (!DOM.transcript) return;
+  DOM.transcript.focus();
+
+  const selection = window.getSelection();
+  const hasSelection =
+    selection &&
+    selection.rangeCount > 0 &&
+    !selection.isCollapsed &&
+    DOM.transcript.contains(selection.anchorNode);
+
+  if (hasSelection) {
+    document.execCommand(command, false, null);
+    syncFormatButtonsWithSelection();
+  } else {
+    state.activeFormats[command] = !state.activeFormats[command];
+    try {
+      document.execCommand(command, false, null);
+    } catch (e) {
+      // Ignore
+    }
+    updateFormatButtonsUI();
+  }
+
+  saveDraft();
+}
+
+function syncFormatButtonsWithSelection() {
+  try {
+    state.activeFormats.bold      = document.queryCommandState('bold');
+    state.activeFormats.italic    = document.queryCommandState('italic');
+    state.activeFormats.underline = document.queryCommandState('underline');
+  } catch (e) {
+    // Ignore
+  }
+  updateFormatButtonsUI();
+}
+
+function updateFormatButtonsUI() {
+  if (DOM.boldBtn) {
+    DOM.boldBtn.classList.toggle('active', !!state.activeFormats.bold);
+  }
+  if (DOM.italicBtn) {
+    DOM.italicBtn.classList.toggle('active', !!state.activeFormats.italic);
+  }
+  if (DOM.underlineBtn) {
+    DOM.underlineBtn.classList.toggle('active', !!state.activeFormats.underline);
+  }
+}
+
+function getExportHTML() {
+  const inner = DOM.transcript.innerHTML || '';
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"></head><body style="font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.6;">${inner}</body></html>`;
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -475,9 +570,14 @@ function updateTimerDisplay() {
 // WORD COUNT
 // ───────────────────────────────────────────────────────────────
 function updateWordCount() {
-  const text = DOM.transcript.value.trim();
+  const text = getPlainText().trim();
   const count = text ? text.split(/\s+/).length : 0;
   DOM.wordCount.textContent = `${count} mot${count > 1 ? 's' : ''}`;
+
+  // Clean up lonely <br> when empty so placeholder shows
+  if (!text && DOM.transcript && DOM.transcript.innerHTML !== '') {
+    DOM.transcript.innerHTML = '';
+  }
 }
 
 // ───────────────────────────────────────────────────────────────
@@ -590,7 +690,7 @@ function logout() {
 // GOOGLE DOCS EXPORT
 // ───────────────────────────────────────────────────────────────
 async function exportToGoogleDocs() {
-  const content = DOM.transcript.value.trim();
+  const content = getPlainText().trim();
 
   if (!content) {
     showToast('Écris ou dicte du texte avant d\'exporter !', 'warning');
@@ -621,20 +721,21 @@ async function exportToGoogleDocs() {
   DOM.exportBtn.disabled = true;
 
   try {
-    // Create a Google Doc via Drive API (multipart upload)
+    // Create a Google Doc via Drive API (multipart upload with HTML to preserve bold/italic/underline)
     const metadata = {
       name: title,
       mimeType: 'application/vnd.google-apps.document',
     };
 
+    const htmlContent = getExportHTML();
     const boundary = '---dictascol-boundary-' + Date.now();
     const body =
       `--${boundary}\r\n` +
       `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
       `${JSON.stringify(metadata)}\r\n` +
       `--${boundary}\r\n` +
-      `Content-Type: text/plain; charset=UTF-8\r\n\r\n` +
-      `${content}\r\n` +
+      `Content-Type: text/html; charset=UTF-8\r\n\r\n` +
+      `${htmlContent}\r\n` +
       `--${boundary}--`;
 
     const response = await fetch(
@@ -755,20 +856,30 @@ async function shareFileWithTeacher(fileId, teacher, docTitle) {
 // COPY TO CLIPBOARD
 // ───────────────────────────────────────────────────────────────
 async function copyToClipboard() {
-  const text = DOM.transcript.value.trim();
+  const text = getPlainText().trim();
   if (!text) {
     showToast('Rien à copier !', 'warning');
     return;
   }
 
   try {
-    await navigator.clipboard.writeText(text);
+    if (window.ClipboardItem && navigator.clipboard.write) {
+      const htmlBlob = new Blob([DOM.transcript.innerHTML], { type: 'text/html' });
+      const textBlob = new Blob([text], { type: 'text/plain' });
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob }),
+      ]);
+    } else {
+      await navigator.clipboard.writeText(text);
+    }
     showToast('✅ Texte copié !', 'success');
   } catch (e) {
-    // Fallback
-    DOM.transcript.select();
-    document.execCommand('copy');
-    showToast('✅ Texte copié !', 'success');
+    try {
+      await navigator.clipboard.writeText(text);
+      showToast('✅ Texte copié !', 'success');
+    } catch (err) {
+      showToast('Erreur lors de la copie', 'error');
+    }
   }
 }
 
@@ -776,7 +887,7 @@ async function copyToClipboard() {
 // TEXT-TO-SPEECH (Relecture)
 // ───────────────────────────────────────────────────────────────
 function readAloud() {
-  const text = DOM.transcript.value.trim();
+  const text = getPlainText().trim();
   if (!text) {
     showToast('Rien à lire !', 'warning');
     return;
@@ -820,7 +931,7 @@ function readAloud() {
 // CLEAR TEXT
 // ───────────────────────────────────────────────────────────────
 function showClearConfirmation() {
-  if (!DOM.transcript.value.trim()) return;
+  if (!getPlainText().trim()) return;
   DOM.clearModal.style.display = 'flex';
 }
 
@@ -833,7 +944,7 @@ function resetInterface() {
     DOM.listenBtn.textContent = '🔈';
   }
 
-  DOM.transcript.value = '';
+  DOM.transcript.innerHTML = '';
   DOM.docTitle.value = '';
   if (DOM.teacherSelect) {
     DOM.teacherSelect.value = '';
@@ -841,6 +952,8 @@ function resetInterface() {
   if (DOM.subjectSelect) {
     DOM.subjectSelect.value = '';
   }
+  state.activeFormats = { bold: false, italic: false, underline: false };
+  updateFormatButtonsUI();
   updateExportButtonLabel();
   updateWordCount();
   clearDraft();
@@ -881,7 +994,8 @@ function saveDraft() {
       title: DOM.docTitle.value,
       teacher: DOM.teacherSelect ? DOM.teacherSelect.value : '',
       subject: DOM.subjectSelect ? DOM.subjectSelect.value : '',
-      text: DOM.transcript.value,
+      html: DOM.transcript.innerHTML,
+      text: getPlainText(),
       timestamp: Date.now(),
     }));
   } catch (e) {
@@ -902,8 +1016,14 @@ function restoreDraft() {
       return;
     }
 
-    if (draft.text) {
-      DOM.transcript.value = draft.text;
+    if (draft.html !== undefined) {
+      DOM.transcript.innerHTML = draft.html;
+      updateWordCount();
+      if (getPlainText().trim()) {
+        DOM.listenBtn.style.display = 'inline-flex';
+      }
+    } else if (draft.text) {
+      DOM.transcript.textContent = draft.text;
       updateWordCount();
       DOM.listenBtn.style.display = 'inline-flex';
     }
@@ -1027,6 +1147,18 @@ function initUIEvents() {
     updateWordCount();
     saveDraft();
   });
+  DOM.transcript.addEventListener('keyup', syncFormatButtonsWithSelection);
+  DOM.transcript.addEventListener('mouseup', syncFormatButtonsWithSelection);
+
+  // Formatting buttons (Gras, Italique, Souligné)
+  const bindFormatBtn = (btn, cmd) => {
+    if (!btn) return;
+    btn.addEventListener('mousedown', (e) => e.preventDefault()); // Keep selection in editor
+    btn.addEventListener('click', () => toggleFormatCommand(cmd));
+  };
+  bindFormatBtn(DOM.boldBtn, 'bold');
+  bindFormatBtn(DOM.italicBtn, 'italic');
+  bindFormatBtn(DOM.underlineBtn, 'underline');
 
   // Save title, teacher & subject on change
   DOM.docTitle.addEventListener('input', saveDraft);

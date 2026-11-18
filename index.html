@@ -110,18 +110,34 @@
             🔈
           </button>
         </div>
-        <textarea 
+        <div 
           id="transcript" 
           class="textarea" 
-          placeholder="Ton texte apparaîtra ici quand tu parleras...
+          contenteditable="true"
+          role="textbox"
+          aria-multiline="true"
+          data-placeholder="Ton texte apparaîtra ici quand tu parleras...
 
 Tu peux aussi taper directement au clavier."
           spellcheck="true"
           lang="fr"
-        ></textarea>
+        ></div>
         <div class="editor-footer">
-          <span id="word-count" class="word-count">0 mot</span>
-          <button id="help-btn" class="btn-link" aria-label="Voir les commandes vocales">💡 Commandes vocales</button>
+          <div class="format-toolbar" role="toolbar" aria-label="Mise en forme du texte">
+            <button type="button" id="bold-btn" class="btn-format" title="Mettre en gras (Ctrl+B)" aria-label="Gras">
+              <strong>G</strong> <span>Gras</span>
+            </button>
+            <button type="button" id="italic-btn" class="btn-format" title="Mettre en italique (Ctrl+I)" aria-label="Italique">
+              <em>I</em> <span>Italique</span>
+            </button>
+            <button type="button" id="underline-btn" class="btn-format" title="Souligner (Ctrl+U)" aria-label="Souligné">
+              <u>S</u> <span>Souligné</span>
+            </button>
+          </div>
+          <div class="editor-meta">
+            <span id="word-count" class="word-count">0 mot</span>
+            <button id="help-btn" class="btn-link" aria-label="Voir les commandes vocales">💡 Commandes vocales</button>
+          </div>
         </div>
       </div>
 
